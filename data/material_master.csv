@@ -1,0 +1,15 @@
+material_id,material_name,category,unit,current_stock,reorder_point,safety_stock,substitute_material_ids,avg_unit_price
+M01,Kraft Grade A,Paper,rolls,18,40,15,M02,22850
+M02,Kraft Grade B,Paper,rolls,55,30,10,M01,22929
+M03,Kraft Grade C,Paper,rolls,62,20,8,,22660
+M04,White Top Liner,Paper,rolls,30,15,5,,23096
+M05,Corrugating Medium,Paper,rolls,44,25,10,,23887
+M06,Adhesive WF-200,Adhesive,kg,1840,200,80,,23333
+M07,Adhesive PF-100,Adhesive,kg,620,100,40,,23379
+M08,Starch Adhesive,Adhesive,kg,920,500,200,,23620
+M09,Ink Cyan,Ink,kg,480,50,20,,23057
+M10,Ink Magenta,Ink,kg,510,50,20,,22613
+M11,Ink Black,Ink,kg,390,60,25,,23756
+M12,Specialty Gold Ink,Ink,kg,340,20,8,,23087
+M13,PP Strapping 12mm,Strapping,rolls,85,30,12,,23547
+M14,PP Strapping 16mm,Strapping,rolls,70,20,8,,23128

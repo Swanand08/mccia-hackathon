@@ -1,0 +1,13 @@
+month,month_name,seasonal_multiplier
+1,January,0.78
+2,February,0.8
+3,March,0.92
+4,April,0.95
+5,May,0.88
+6,June,0.82
+7,July,0.85
+8,August,0.9
+9,September,0.95
+10,October,1.35
+11,November,1.62
+12,December,1.4

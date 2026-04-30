@@ -1,0 +1,10 @@
+supplier_id,supplier_name,materials_supplied,lead_time_days,moq,moq_unit,payment_terms_days,reliability_score,contact_email,contact_phone
+SUP01,West Coast Paper Mills,"M01,M02,M03",7,20,rolls,30,0.92,orders@westcoastpaper.in,+91-20-2567-8901
+SUP02,BILT Graphic,"M04,M05",10,15,rolls,45,0.88,supply@biltgraphic.in,+91-22-4567-1234
+SUP03,Pidilite Industries,"M06,M07",5,100,kg,30,0.95,bulk@pidilite.com,+91-22-2345-6789
+SUP04,National Starch,M08,4,500,kg,30,0.9,orders@nationalstarch.in,+91-11-3456-7890
+SUP05,Toyo Inks,"M09,M10,M11",12,25,kg,45,0.87,india@toyoinks.com,+91-44-5678-2345
+SUP06,Siegwerk India,M12,21,10,kg,60,0.82,sales@siegwerk.in,+91-20-6789-3456
+SUP07,Supreme Industries,"M13,M14",6,20,rolls,30,0.94,orders@supreme.co.in,+91-22-7890-4567
+SUP08,ITC Paper Division,"M01,M04",8,25,rolls,30,0.91,paper@itc.in,+91-33-8901-5678
+SUP09,Hindustan Paper Corp,"M02,M03",14,20,rolls,60,0.79,sales@hindustanpaper.in,+91-36-9012-6789
