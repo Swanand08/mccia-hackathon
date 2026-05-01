@@ -4,6 +4,7 @@ Identifies materials at risk of stockout within 21-day horizon.
 """
 import pandas as pd
 import os
+from config import TODAY
 
 def run_stockout_alerts(forecast_df, material_master, supplier_master):
     """
@@ -45,11 +46,11 @@ def run_stockout_alerts(forecast_df, material_master, supplier_master):
         shortfall = round(max(0, need_21d - current_stock), 2)
         
         if days_remaining < 3:
-            alert_level = "🔴 CRITICAL"
+            alert_level = "CRITICAL"
         elif days_remaining <= 7:
-            alert_level = "🟡 WARNING"
+            alert_level = "WARNING"
         else:
-            alert_level = "🟢 OK"
+            alert_level = "OK"
         
         sup = sup_lookup.get(mat_id, {})
         sup_id = sup.get("supplier_id", "N/A") if isinstance(sup, dict) or isinstance(sup, pd.Series) else "N/A"
@@ -81,11 +82,11 @@ def run_stockout_alerts(forecast_df, material_master, supplier_master):
     warning = alerts_df[alerts_df["alert_level"].str.contains("WARNING")]
     
     if len(critical) > 0:
-        print(f"\n  ⚠️  {len(critical)} CRITICAL STOCKOUT ALERT(S)!")
+        print(f"\n  [!!] {len(critical)} CRITICAL STOCKOUT ALERT(S)!")
         print("  " + "-"*60)
         for _, a in critical.iterrows():
-            print(f"  🔴 {a['material_id']} {a['name']}: {a['current_stock']} {a['unit']} remaining")
-            print(f"     Daily demand: {a['daily_demand']:.2f} {a['unit']}/day → Only {a['days_remaining']} days left!")
+            print(f"  [!!] {a['material_id']} {a['name']}: {a['current_stock']} {a['unit']} remaining")
+            print(f"     Daily demand: {a['daily_demand']:.2f} {a['unit']}/day -> Only {a['days_remaining']} days left!")
             print(f"     21-day need: {a['21d_need']:.2f} {a['unit']} | Shortfall: {a['shortfall']:.2f} {a['unit']}")
             print(f"     Supplier: {a['supplier']} | Lead time: {a['lead_time_days']} days")
             
@@ -94,14 +95,14 @@ def run_stockout_alerts(forecast_df, material_master, supplier_master):
                 m02 = alerts_df[alerts_df["material_id"] == "M02"]
                 if len(m02) > 0:
                     m02_row = m02.iloc[0]
-                    print(f"     💡 BACKUP: M02 {m02_row['name']} has {m02_row['current_stock']} {m02_row['unit']} in stock")
+                    print(f"     [INFO] BACKUP: M02 {m02_row['name']} has {m02_row['current_stock']} {m02_row['unit']} in stock")
             print()
     
     if len(warning) > 0:
-        print(f"\n  ⚡ {len(warning)} WARNING ALERT(S):")
+        print(f"\n  [!] {len(warning)} WARNING ALERT(S):")
         print("  " + "-"*60)
         for _, a in warning.iterrows():
-            print(f"  🟡 {a['material_id']} {a['name']}: {a['days_remaining']} days remaining")
+            print(f"  [!] {a['material_id']} {a['name']}: {a['days_remaining']} days remaining")
     
     print(f"\n  Full Alert Table:")
     print(alerts_df.to_string(index=False))

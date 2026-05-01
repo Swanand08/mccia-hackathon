@@ -4,6 +4,7 @@ Identifies materials below reorder point and recommends substitutes.
 """
 import pandas as pd
 import os
+from config import TODAY
 
 def run_substitution_engine(forecast_df, material_master, supplier_master):
     """
@@ -85,21 +86,21 @@ def run_substitution_engine(forecast_df, material_master, supplier_master):
             both_low = sub_stock < sub_rop
             
             if both_low:
-                status = "⚠️ BOTH LOW"
+                status = "[!!] BOTH LOW"
                 action = f"ORDER BOTH {mat_id} and {sub_id}"
                 advisory = (f"CRITICAL: Both {mat_id} and substitute {sub_id} are below reorder point! "
                            f"Order both immediately.")
             elif sub_stock > adjusted_demand:
-                status = "✅ SUBSTITUTE AVAILABLE"
+                status = "[OK] SUBSTITUTE AVAILABLE"
                 action = f"Switch from {mat_id} to {sub_id}"
                 sup_info = sub_sup
-                advisory = (f"Switch from {mat_id} to {sub_id} — order {shortfall} {mat['unit']} from "
+                advisory = (f"Switch from {mat_id} to {sub_id} - order {shortfall} {mat['unit']} from "
                            f"{sup_info.get('supplier_id', 'N/A')} ({sup_info.get('supplier_name', 'N/A')}) "
                            f"(lead {sup_info.get('lead_time_days', '?')} days, "
                            f"MOQ {sup_info.get('moq', '?')} {sup_info.get('moq_unit', '')}, "
                            f"reliability {sup_info.get('reliability_score', '?')})")
             else:
-                status = "🟡 PARTIAL"
+                status = "[!] PARTIAL"
                 action = f"Use {sub_id} partially, order {mat_id}"
                 advisory = (f"Substitute {sub_id} has {sub_stock} {sub_mat['unit']} "
                            f"(insufficient for full demand of {adjusted_demand:.1f}). "
@@ -125,7 +126,7 @@ def run_substitution_engine(forecast_df, material_master, supplier_master):
     if len(advisories_df) > 0:
         print(f"\n  Found {len(advisories_df)} substitution advisory/ies:\n")
         for _, adv in advisories_df.iterrows():
-            print(f"  {'─'*60}")
+            print(f"  {'-'*60}")
             print(f"  Primary:    {adv['material_id']} {adv['material_name']}")
             print(f"  Stock:      {adv['current_stock']} (reorder point: {adv['reorder_point']})")
             print(f"  Days left:  {adv['days_remaining']}")

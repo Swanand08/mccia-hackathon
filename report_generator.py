@@ -9,24 +9,9 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import json
+import pandas as pd
 
-TODAY = datetime(2023, 12, 1)
-CREDIT_LIMIT = 3000000
-
-AVG_PRICES = {
-    "M01":22850,"M02":22929,"M03":22660,"M04":23096,"M05":23887,
-    "M06":23333,"M07":23379,"M08":23620,"M09":23057,"M10":22613,
-    "M11":23756,"M12":23087,"M13":23547,"M14":23128
-}
-
-BOM_MAP = {
-    "small_std":{"M01":0.18,"M05":0.12,"M06":0.008,"M08":0.015,"M11":0.002,"M13":0.05},
-    "medium_std":{"M01":0.32,"M05":0.22,"M06":0.014,"M08":0.025,"M11":0.003,"M13":0.08},
-    "medium_printed":{"M02":0.32,"M05":0.22,"M06":0.014,"M09":0.006,"M10":0.006,"M11":0.003,"M13":0.08},
-    "small_printed":{"M02":0.18,"M05":0.12,"M06":0.008,"M09":0.003,"M10":0.003,"M11":0.002,"M13":0.05},
-    "large_std":{"M01":0.55,"M05":0.38,"M06":0.022,"M08":0.04,"M11":0.005,"M14":0.12},
-    "large_premium":{"M04":0.55,"M05":0.38,"M07":0.022,"M09":0.008,"M10":0.008,"M12":0.004,"M14":0.12},
-}
+from config import TODAY, CREDIT_LIMIT, AVG_PRICES, BOM_MAP, get_seasonal_multiplier, get_current_outstanding
 
 # Styling constants
 HEADER_FILL = PatternFill("solid", fgColor="1F4E79")
@@ -65,7 +50,7 @@ def auto_fit_columns(ws):
         ws.column_dimensions[col_letter].width = min(max_len + 3, 40)
 
 def generate_report(forecast_df, alerts_df, substitution_df, procurement_df, 
-                    upcoming_orders, explosion_df, output_dir):
+                    upcoming_orders, explosion_df, output_dir, supplier_master=None):
     wb = Workbook()
     
     # ========== SHEET 1: Executive Summary ==========
@@ -86,7 +71,7 @@ def generate_report(forecast_df, alerts_df, substitution_df, procurement_df,
     critical_count = len(forecast_df[forecast_df["days_of_stock_remaining"] < 3])
     approved = procurement_df[procurement_df["status"].isin(["APPROVED","PARTIAL"])]
     total_orders_val = approved["order_cost_inr"].sum()
-    final_outstanding = approved["cumulative_outstanding"].max() if len(approved) > 0 else 1414385
+    final_outstanding = approved["cumulative_outstanding"].max() if len(approved) > 0 else get_current_outstanding() # Fallback to config helper
     credit_remaining = CREDIT_LIMIT - final_outstanding
     
     metrics = [
@@ -126,38 +111,46 @@ def generate_report(forecast_df, alerts_df, substitution_df, procurement_df,
     ws2.freeze_panes = "A2"
     
     r = 2
-    active_orders = procurement_df[procurement_df["order_qty_moq"] > 0].sort_values("supplier_id")
-    sup_groups = active_orders.groupby("supplier_id") if len(active_orders) > 0 else []
+    # BUG 7 FIX: Filter out non-order rows before groupby
+    active_orders = procurement_df[procurement_df["order_qty_moq"] > 0].copy()
+    active_orders = active_orders[active_orders["supplier_id"] != "—"]
     
-    for sup_id, group in (sup_groups if len(active_orders) > 0 else []):
-        for _, rec in group.iterrows():
-            sup_info_lookup = {"lead_time_days": 7}
-            lead = sup_info_lookup.get("lead_time_days", 7)
-            exp_date = (TODAY + timedelta(days=lead)).strftime("%Y-%m-%d")
+    sup_groups = active_orders.groupby("supplier_id") if not active_orders.empty else []
+    
+    sup_lead_lookup = {}
+    if supplier_master is not None:
+        for _, s in supplier_master.iterrows():
+            sup_lead_lookup[s["supplier_id"]] = int(s.get("lead_time_days", 7))
+
+    if not active_orders.empty:
+        for sup_id, group in sup_groups:
+            for _, rec in group.iterrows():
+                lead = sup_lead_lookup.get(str(rec.get("supplier_id","—")), 7)
+                exp_date = (TODAY + timedelta(days=lead)).strftime("%Y-%m-%d")
+                
+                vals = [rec["supplier_name"], rec["material_id"], rec["name"],
+                       rec["current_stock"], rec["unit"], rec["order_qty_moq"],
+                       "", rec["unit_price"], rec["order_cost_inr"],
+                       rec["payment_terms"], exp_date, rec["priority"],
+                       rec["recommendation_reason"]]
+                
+                for c, v in enumerate(vals, 1):
+                    cell = ws2.cell(row=r, column=c, value=v)
+                    cell.border = THIN_BORDER
+                    if rec["status"] == "BLOCKED":
+                        cell.fill = CRITICAL_FILL
+                    elif "PARTIAL" in str(rec["status"]):
+                        cell.fill = WARNING_FILL
+                    else:
+                        cell.fill = OK_FILL
+                r += 1
             
-            vals = [rec["supplier_name"], rec["material_id"], rec["name"],
-                   rec["current_stock"], rec["unit"], rec["order_qty_moq"],
-                   "", rec["unit_price"], rec["order_cost_inr"],
-                   rec["payment_terms"], exp_date, rec["priority"],
-                   rec["recommendation_reason"]]
-            
-            for c, v in enumerate(vals, 1):
-                cell = ws2.cell(row=r, column=c, value=v)
-                cell.border = THIN_BORDER
-                if rec["status"] == "BLOCKED":
-                    cell.fill = CRITICAL_FILL
-                elif "PARTIAL" in str(rec["status"]):
-                    cell.fill = WARNING_FILL
-                else:
-                    cell.fill = OK_FILL
+            ws2.cell(row=r, column=1, value=f"Subtotal — {sup_id}").font = BOLD_FONT
+            ws2.cell(row=r, column=9, value=group["order_cost_inr"].sum()).font = BOLD_FONT
             r += 1
-        
-        ws2.cell(row=r, column=1, value=f"Subtotal — {sup_id}").font = BOLD_FONT
-        ws2.cell(row=r, column=9, value=group["order_cost_inr"].sum()).font = BOLD_FONT
-        r += 1
     
     ws2.cell(row=r, column=1, value="GRAND TOTAL").font = Font(bold=True, size=12)
-    ws2.cell(row=r, column=9, value=active_orders["order_cost_inr"].sum() if len(active_orders) > 0 else 0).font = Font(bold=True, size=12)
+    ws2.cell(row=r, column=9, value=active_orders["order_cost_inr"].sum() if not active_orders.empty else 0).font = Font(bold=True, size=12)
     auto_fit_columns(ws2)
     
     # ========== SHEET 3: Stockout Risk Dashboard ==========
@@ -188,29 +181,16 @@ def generate_report(forecast_df, alerts_df, substitution_df, procurement_df,
                 cell.fill = OK_FILL
     auto_fit_columns(ws3)
     
-    # ========== SHEET 4: Substitution Advisory ==========
-    ws4 = wb.create_sheet("Substitution Advisory")
-    ws4.sheet_properties.tabColor = "FF8C00"
-    
-    if len(substitution_df) > 0:
-        headers4 = list(substitution_df.columns)
-        for c, h in enumerate(headers4, 1):
-            ws4.cell(row=1, column=c, value=h)
-        style_header_row(ws4, 1, len(headers4))
-        for i, (_, row_data) in enumerate(substitution_df.iterrows(), 2):
-            for c, h in enumerate(headers4, 1):
-                cell = ws4.cell(row=i, column=c, value=row_data[h])
-                cell.border = THIN_BORDER
-    else:
-        ws4.cell(row=1, column=1, value="No substitution advisories at this time.")
-    auto_fit_columns(ws4)
-    
-    # ========== SHEET 5: Calculation Chain ==========
+    # ========== SHEET 4: Calculation Chain ==========
     ws5 = wb.create_sheet("Calculation Chain")
     ws5.sheet_properties.tabColor = "228B22"
     
     ws5.cell(row=1, column=1, value="FULL CALCULATION CHAIN — Every Material").font = TITLE_FONT
     ws5.merge_cells("A1:F1")
+    
+    # BUG 4 FIX: Dynamic seasonal multiplier text
+    month_name = TODAY.strftime('%b')
+    multiplier = get_seasonal_multiplier(month=TODAY.month)
     
     r = 3
     for _, mat_row in forecast_df.sort_values("days_of_stock_remaining").iterrows():
@@ -234,7 +214,7 @@ def generate_report(forecast_df, alerts_df, substitution_df, procurement_df,
         lines = [
             f"Upcoming orders (next 42 days): {order_count} order line items",
             f"Raw demand from BOM explosion: {raw_demand:.2f} {unit}",
-            f"Seasonal adjustment (Dec x1.40): {raw_demand:.2f} x 1.40 = {adj_demand:.2f} {unit}",
+            f"Seasonal adjustment ({month_name} x{multiplier:.2f}): {raw_demand:.2f} x {multiplier:.2f} = {adj_demand:.2f} {unit}",
             f"Current stock: {cs} {unit}",
         ]
         
@@ -264,7 +244,6 @@ def generate_report(forecast_df, alerts_df, substitution_df, procurement_df,
     filepath = os.path.join(output_dir, filename)
     wb.save(filepath)
     
-    print(f"\n  Excel report saved: {filepath}")
     return filepath
 
 if __name__ == "__main__":
