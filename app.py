@@ -6,7 +6,8 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import os, sys, json, math, anthropic
+import os, sys, json, math
+import google.generativeai as genai
 from datetime import timedelta
 from dotenv import load_dotenv
 
@@ -90,8 +91,8 @@ with st.sidebar:
     st.markdown("## [📦] PackRight AI Hub")
     st.markdown(f"**Date:** {TODAY.strftime('%d %B %Y')} *(live)*")
     
-    if not os.getenv("ANTHROPIC_API_KEY"):
-        st.warning("⚠️ AI Assistant disabled — add ANTHROPIC_API_KEY to your .env file")
+    if not os.getenv("GEMINI_API_KEY"):
+        st.warning("⚠️ AI Assistant disabled — add GEMINI_API_KEY to your .env file")
 
     if not os.path.exists(DATA_DIR):
         st.error("⚠️ Data directory missing! Click below to generate sample data.")
@@ -304,14 +305,14 @@ elif "| Procurement" in menu:
         with c_p1:
             # FEATURE 6: PO Draft Generator
             if st.button(f"📧 Draft PO Email", key=f"draft_{idx}"):
-                api_key = os.getenv("ANTHROPIC_API_KEY")
+                api_key = os.getenv("GEMINI_API_KEY")
                 if not api_key: st.error("No API Key")
                 else:
-                    client = anthropic.Anthropic(api_key=api_key)
-                    # BUG 6: Updated Claude model string
+                    genai.configure(api_key=api_key)
+                    model = genai.GenerativeModel("gemini-2.0-flash")
                     prompt = f"Write a professional PO email to {row['supplier_name']} for {row['order_qty_moq']} {row['unit']} of {row['name']}. Price: ₹{row['unit_price']}/unit, Total: ₹{row['order_cost_inr']:,.0f}. Lead time: {lead} days. Payment: {row['payment_terms']}."
-                    msg = client.messages.create(model="claude-haiku-4-5-20251001", max_tokens=500, messages=[{"role":"user","content":prompt}])
-                    st.text_area("PO Draft", msg.content[0].text, height=200)
+                    msg = model.generate_content(prompt)
+                    st.text_area("PO Draft", msg.text, height=200)
         with c_p2:
             # FEATURE 8: Order History integration
             if st.button(f"✅ Confirm Order", key=f"conf_{idx}"):
@@ -432,14 +433,14 @@ elif "| AI Assistant" in menu:
 
     with col1:
         question = st.text_area("Your question:", value=st.session_state.get("ai_q",""), height=100)
-        if st.button("Ask Claude ↗", type="primary") and question:
-            api_key = os.getenv("ANTHROPIC_API_KEY")
+        if st.button("Ask Gemini ↗", type="primary") and question:
+            api_key = os.getenv("GEMINI_API_KEY")
             if not api_key: st.error("API Key missing")
             else:
-                client = anthropic.Anthropic(api_key=api_key)
-                # BUG 6: Updated Claude model string
-                msg = client.messages.create(model="claude-haiku-4-5-20251001", max_tokens=1000, system=system_prompt, messages=[{"role":"user","content":question}])
-                st.markdown(f"<div style='background:rgba(255,255,255,0.04);padding:20px;border-radius:10px;border:1px solid #334155;'>{msg.content[0].text}</div>", unsafe_allow_html=True)
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel("gemini-2.0-flash")
+                msg = model.generate_content(system_prompt + "\n\n" + question)
+                st.markdown(f"<div style='background:rgba(255,255,255,0.04);padding:20px;border-radius:10px;border:1px solid #334155;'>{msg.text}</div>", unsafe_allow_html=True)
 
 # ── BOM CALCULATIONS ──────────────────────────────────────────────────────────
 elif "| BOM" in menu:

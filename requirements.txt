@@ -2,5 +2,5 @@ streamlit
 pandas
 openpyxl
 plotly
-anthropic
+google-generativeai
 python-dotenv

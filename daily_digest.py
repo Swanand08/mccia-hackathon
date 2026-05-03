@@ -4,7 +4,7 @@ Standalone script to generate a daily inventory summary using Claude AI and send
 """
 import os
 import pandas as pd
-import anthropic
+import google.generativeai as genai
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -92,20 +92,17 @@ def generate_digest():
         """
         
         # 4. Ask Claude
-        api_key = os.getenv("ANTHROPIC_API_KEY")
+        api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            print("  ERROR: ANTHROPIC_API_KEY not found in .env")
+            print("  ERROR: GEMINI_API_KEY not found in .env")
             return
         
-        client = anthropic.Anthropic(api_key=api_key)
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-2.0-flash")
         prompt = f"Write a 5-bullet plain-English WhatsApp-style morning summary for a business owner based on this data:\\n{context}"
         
-        msg = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=500,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        digest = msg.content[0].text
+        msg = model.generate_content(prompt)
+        digest = msg.text
         
         # 5. Output
         print("\\n" + "="*50)
